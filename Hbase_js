@@ -1,0 +1,127 @@
+import happybase
+import pandas as pd
+
+# Establecer conexión con HBase
+connection = happybase.Connection('localhost')
+print("Conexión establecida con HBase")
+
+# Crear tabla con las familias de columnas
+table_name = 'movies'
+families = {
+    'basic': dict(),  # Información básica de la película
+    'ratings': dict(),  # Calificaciones IMDb
+    'countries': dict()  # Países disponibles
+}
+
+# Eliminar tabla si ya existe
+if table_name.encode() in connection.tables():
+    print(f"Eliminando tabla existente - {table_name}")
+    connection.delete_table(table_name, disable=True)
+
+# Crear nueva tabla
+connection.create_table(table_name, families)
+table = connection.table(table_name)
+print("Tabla 'movies' creada exitosamente")
+
+# Cargar datos del CSV
+movie_data = pd.read_csv('/home/juansimon1/tarea4/data.csv')
+
+# Insertar datos en HBase
+for index, row in movie_data.iterrows():
+    row_key = f'movie_{index}'.encode()
+data = {
+        b'basic:title': str(row['title']).encode(),
+        b'basic:type': str(row['type']).encode(),
+        b'basic:genres': str(row['genres']).encode(),
+        b'basic:releaseYear': str(row['releaseYear']).encode(),
+        b'ratings:imdbId': str(row['imdbId']).encode(),
+        b'ratings:imdbAverageRating': str(row['imdbAverageRating']).encode(),
+        b'ratings:imdbNumVotes': str(row['imdbNumVotes']).encode(),
+        b'countries:availableCountries': str(row['availableCountries']).encode(),
+    }
+
+    table.put(row_key, data)
+
+print("Datos cargados exitosamente")
+
+# Consulta (mostrar primeros 3 registros)
+count = 0
+for key, data in table.scan():
+    if count < 3:
+        print(f"\nPelícula ID: {key.decode()}")
+        print(f"Título: {data[b'basic:title'].decode()}")
+        print(f"Año de lanzamiento: {data[b'basic:releaseYear'].decode()}")
+        print(f"Calificación IMDb: {data[b'ratings:imdbAverageRating'].decode()}")
+        count += 1
+
+
+# Recorrido para seleccionar 10 películas, espaciadas cada 500 registros
+print("10 películas espaciadas cada 500 registros:")
+count = 0
+selected_count = 0
+for key, data in table.scan():
+    if count % 500 == 0 and selected_count < 10:
+        print(f"\nPelícula ID: {key.decode()}")
+        print(f"Título: {data.get(b'basic:title', b'').decode()}")
+        print(f"Calificación IMDb: {data.get(b'ratings:imdbAverageRating', b'').decode()}")
+        selected_count += 1
+    count += 1
+
+# Filtrado de 10 películas con calificación IMDb mayor a 8
+print("\n10 películas con calificación IMDb mayor a 8:")
+filtered_count = 0
+for key, data in table.scan():
+    rating = float(data.get(b'ratings:imdbAverageRating', b'0').decode())
+    if rating > 8 and filtered_count < 10:
+        print(f"Título: {data.get(b'basic:title', b'').decode()}, Calificación: {rating}")
+        filtered_count += 1
+
+# Insertar una nueva película en la tabla
+new_movie_id = b'movie_5751'
+new_movie_data = {
+    b'basic:title': b'The New Adventure',
+    b'basic:type': b'Movie',
+    b'basic:genres': b'Action, Adventure',
+    b'basic:releaseYear': b'2024',
+    b'ratings:imdbId': b'9999999',
+    b'ratings:imdbAverageRating': b'8.5',
+    b'ratings:imdbNumVotes': b'15000',
+    b'countries:availableCountries': b'US, UK'
+}
+table.put(new_movie_id, new_movie_data)
+print("Nueva película insertada exitosamente.")
+
+# Mostrar la nueva película insertada
+new_movie = table.row(new_movie_id)
+print("\nNuevo registro insertado:")
+print(f"Película ID: {new_movie_id.decode()}")
+print(f"Título: {new_movie.get(b'basic:title', b'').decode()}")
+print(f"Géneros: {new_movie.get(b'basic:genres', b'').decode()}")
+print(f"Año de lanzamiento: {new_movie.get(b'basic:releaseYear', b'').decode()}")
+print(f"Calificación IMDb: {new_movie.get(b'ratings:imdbAverageRating', b'').decode()}")
+print(f"Países disponibles: {new_movie.get(b'countries:availableCountries', b'').decode()}")
+
+# Actualizar la calificación IMDb de una película existente
+# ID de la película a actualizar
+movie_id_to_update = b'movie_200'
+
+# Obtener los datos de la película antes de la actualización
+movie_before_update = table.row(movie_id_to_update)
+print("Película antes de la actualización:")
+print(f"Película ID: {movie_id_to_update.decode()}")
+print(f"Título: {movie_before_update.get(b'basic:title', b'').decode()}")
+print(f"Calificación IMDb (Antigua): {movie_before_update.get(b'ratings:imdbAverageRating', b'').decode()}")
+
+# Nueva calificación para la película
+updated_data = {b'ratings:imdbAverageRating': b'7.5'}  # Nueva calificación
+
+# Actualizar la calificación de la película
+table.put(movie_id_to_update, updated_data)
+print("Película actualizada exitosamente.")
+
+# Obtener los datos de la película después de la actualización
+movie_after_update = table.row(movie_id_to_update)
+print("\nPelícula después de la actualización:")
+print(f"Película ID: {movie_id_to_update.decode()}")
+print(f"Título: {movie_after_update.get(b'basic:title', b'').decode()}")
+print(f"Calificación IMDb (Nueva): {movie_after_update.get(b'ratings:imdbAverageRating', b'').decode()}")
