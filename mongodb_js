@@ -1,0 +1,72 @@
+// Inserta un nuevo producto en la colección 'productos'
+db.productos.insertOne({
+  "nombre": "Camiseta deportiva",
+  "categoria": "ropa",
+  "precio": 85000,
+  "stock": 150,
+  "ventas": 45,
+  "disponible": true
+});
+
+// Muestra el número total de documentos en la colección 'productos'
+db.productos.countDocuments(); // Devuelve: 106
+
+// Busca un producto específico por su nombre
+db.productos.find({"nombre": "Camiseta deportiva"});
+// Resultado esperado:
+// {
+//   _id: ObjectId('673e0d24a4b3dab12cfcd4af'),
+//   nombre: 'Camiseta deportiva',
+//   categoria: 'ropa',
+//   precio: 85000,
+//   stock: 150,
+//   ventas: 45,
+//   disponible: true
+// }
+
+// Actualiza el precio, el stock y la disponibilidad de un producto específico
+db.productos.updateOne(
+  { "_id": ObjectId("673e056f9a63417794218a0a") }, // Filtra por _id
+  {
+    $set: {
+      "precio": 550000,     // Actualiza el precio
+      "stock": 15,          // Actualiza el stock
+      "disponible": false   // Cambia la disponibilidad a 'false'
+    }
+  }
+);
+
+// Elimina un producto específico de la colección
+db.productos.deleteOne(
+  { "_id": ObjectId("673e0d24a4b3dab12cfcd4af") } // Filtra por _id
+);
+
+// Busca productos en la categoría 'running' con un precio mayor a 300,000
+db.productos.find(
+  { 
+    "categoria": "running",  // Filtro por categoría
+    "precio": { $gt: 300000 }  // Precio mayor a 300,000
+  }
+);
+
+// Busca productos disponibles con stock mayor a 10 y solo muestra 'nombre' y 'precio'
+db.productos.find(
+  { 
+    "disponible": true,  // Filtro por disponibilidad
+    "stock": { $gt: 10 }  // Filtro por stock mayor a 10
+  },
+  {
+    "nombre": 1,  // Incluye el campo 'nombre'
+    "precio": 1   // Incluye el campo 'precio'
+  }
+).pretty(); // Formato legible
+
+// Busca productos disponibles con un precio menor a 100,000 y los imprime con sus detalles
+db.productos.find(
+  { 
+    "disponible": true,  // Filtro por disponibilidad
+    "precio": { $lt: 100000 }  // Precio menor a 100,000
+  }
+).forEach(doc => {
+  print(`Nombre: ${doc.nombre}, Precio: ${doc.precio}, Stock: ${doc.stock}`); // Imprime detalles
+});
